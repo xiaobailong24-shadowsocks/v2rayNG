@@ -90,23 +90,26 @@ scripts) and degrades gracefully when absent. Full build instructions:
 
 ## Verification status
 
-Since Compose Multiplatform 1.8 the Compose libraries are unified with AndroidX,
-so **all** Compose artifacts — desktop included — now resolve from Google's Maven
-repository. This sandbox's egress policy blocks Google Maven and ships no Android
-SDK, so automated verification here covers everything that resolves from Maven
-Central:
+**All three CI workflows are green** — every platform builds end-to-end on
+GitHub Actions:
 
-* ✅ **`:core:jvmTest` — 36 tests passing on Kotlin 2.4.0**: link parsing &
+* ✅ **verify** — `:core:jvmTest` (36 tests on Kotlin 2.4.0: link parsing &
   round-trips for every protocol, subscription decoding, Xray config generation,
-  repository behaviour, and full `AppViewModel` interaction logic (import /
-  connect-toggle / subscription CRUD).
-* ✅ **`:composeApp` configures on Compose Multiplatform 1.11.1** — the Gradle
-  build, Compose plugin and DSL resolve and evaluate cleanly.
-* ✅ **`compose-mp-verify` CI (GitHub, Google Maven reachable) compiles the whole
-  shared Compose UI** (`compileKotlinDesktop`) and runs `:core:jvmTest` — green.
-* ▶️ **`:run` / `:screenshot`** and the Android/iOS device builds run on a normal
-  developer machine / CI where the SDK, Xcode and Google Maven are available (see
-  the CI workflows below).
+  repository behaviour, full `AppViewModel` interaction logic), compiles the
+  whole shared Compose UI (`compileKotlinDesktop`), and **renders the real UI
+  headlessly** (`:composeApp:screenshot`, `ImageComposeScene`) — the PNG is
+  uploaded as the `ui-screenshot` artifact.
+* ✅ **android** — debug APK with the native core (prebuilt `libv2ray.aar`
+  Xray-core + `libhev-socks5-tunnel.so` built from the submodule), uploaded as
+  the `composeApp-debug-apk` artifact.
+* ✅ **ios** — Xray gomobile xcframework + hev static lib (Kotlin/Native
+  cinterop) + shared `ComposeApp.framework`, then `xcodebuild` builds the app
+  **and the `PacketTunnel` network extension** for the iOS Simulator (unsigned).
+
+(The development sandbox itself blocks Google Maven — where every Compose
+artifact ships from since CMP 1.8 unified with AndroidX — and has no Android
+SDK/Xcode, so in-sandbox checks cover `:core:jvmTest` and Gradle configuration;
+everything above is verified by CI.)
 
 ### CI
 
@@ -115,9 +118,9 @@ matrix on GitHub infra, where Google Maven is reachable:
 
 | Workflow | Runner | Does |
 |----------|--------|------|
-| `compose-mp-verify` | ubuntu | `:core:jvmTest` + compiles the whole shared Compose UI (`compileKotlinDesktop`). |
-| `compose-mp-android` | ubuntu | builds `libv2ray.aar` + `libhev-socks5-tunnel.so` from the submodules, then `assembleDebug -PwithNative=true`; uploads the APK. |
-| `compose-mp-ios` | macos-14 | builds the Xray xcframework + hev static lib, then `xcodebuild` for the iOS Simulator (unsigned). |
+| `compose-mp-verify` | ubuntu | `:core:jvmTest` + compiles the shared Compose UI (`compileKotlinDesktop`) + headless UI screenshot artifact. |
+| `compose-mp-android` | ubuntu | downloads the release `libv2ray.aar`, builds `libhev-socks5-tunnel.so` from the submodule, then `assembleDebug -PwithNative=true`; uploads the APK. |
+| `compose-mp-ios` | macos-15 | builds the Xray xcframework + hev static lib + `ComposeApp.framework`, then `xcodebuild` (app + PacketTunnel extension) for the iOS Simulator (unsigned). macos-15+ required — CMP 1.11 links against iOS 18.4+ SDK symbols. |
 
 ## License
 
