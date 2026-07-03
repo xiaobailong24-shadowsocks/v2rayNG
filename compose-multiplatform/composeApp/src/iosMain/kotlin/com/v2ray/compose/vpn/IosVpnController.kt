@@ -4,6 +4,7 @@ import com.v2ray.compose.core.model.ConnectionStatus
 import com.v2ray.compose.core.model.ProfileItem
 import com.v2ray.compose.core.vpn.ConnectionStats
 import com.v2ray.compose.core.vpn.VpnController
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,7 +12,11 @@ import platform.Foundation.NSNotificationCenter
 import platform.NetworkExtension.NETunnelProviderManager
 import platform.NetworkExtension.NETunnelProviderProtocol
 import platform.NetworkExtension.NEVPNStatus
+import platform.NetworkExtension.NEVPNStatusConnected
+import platform.NetworkExtension.NEVPNStatusConnecting
 import platform.NetworkExtension.NEVPNStatusDidChangeNotification
+import platform.NetworkExtension.NEVPNStatusDisconnecting
+import platform.NetworkExtension.NEVPNStatusReasserting
 import platform.darwin.NSObjectProtocol
 
 /**
@@ -23,6 +28,7 @@ import platform.darwin.NSObjectProtocol
  * tunnel configuration and starts/stops it; the rendered Xray JSON is handed to
  * the extension via the protocol's `providerConfiguration`.
  */
+@OptIn(ExperimentalForeignApi::class) // startVPNTunnelAndReturnError's NSError out-param
 class IosVpnController : VpnController {
 
     private val _stats = MutableStateFlow(ConnectionStats())
@@ -87,10 +93,12 @@ class IosVpnController : VpnController {
         }
     }
 
+    // NEVPNStatus values surface as top-level constants in the Kotlin/Native
+    // NetworkExtension bindings (not as enum entries).
     private fun mapStatus(status: NEVPNStatus): ConnectionStatus = when (status) {
-        NEVPNStatus.NEVPNStatusConnected -> ConnectionStatus.CONNECTED
-        NEVPNStatus.NEVPNStatusConnecting, NEVPNStatus.NEVPNStatusReasserting -> ConnectionStatus.CONNECTING
-        NEVPNStatus.NEVPNStatusDisconnecting -> ConnectionStatus.DISCONNECTING
+        NEVPNStatusConnected -> ConnectionStatus.CONNECTED
+        NEVPNStatusConnecting, NEVPNStatusReasserting -> ConnectionStatus.CONNECTING
+        NEVPNStatusDisconnecting -> ConnectionStatus.DISCONNECTING
         else -> ConnectionStatus.DISCONNECTED
     }
 
