@@ -25,15 +25,25 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          # Go 1.23: wlynxg/anet (an Xray-core dep) uses //go:linkname on
+          # net.zoneCache, which Go 1.24 locked down.
+          go-version: '1.23'
 
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      # macOS runners also ship an Android SDK; force the Kotlin build to the iOS
+      # targets only (the Xcode pre-build script calls ./gradlew without flags, so
+      # set it in gradle.properties).
+      - name: Restrict Kotlin targets to iOS
+        working-directory: compose-multiplatform
+        run: printf '\nenableAndroid=false\nenableIos=true\n' >> gradle.properties
 
       - name: Build Xray-core xcframework (gomobile)
         working-directory: compose-multiplatform/iosApp/PacketTunnel/xray-go
         run: |
           go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           export PATH="$(go env GOPATH)/bin:$PATH"
           ./build-xray-apple.sh

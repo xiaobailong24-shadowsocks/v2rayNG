@@ -30,11 +30,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # GitHub runners ship an Android SDK (ANDROID_HOME set), which would flip the
+      # auto-detected Android target on; force desktop-only for this check.
       - name: Core unit tests (Kotlin Multiplatform / JVM)
-        run: ./gradlew :core:jvmTest --stacktrace
+        run: ./gradlew :core:jvmTest -PenableAndroid=false -PenableIos=false --stacktrace
 
       - name: Compile shared Compose UI (desktop)
-        run: ./gradlew :composeApp:compileKotlinDesktop --stacktrace
+        run: ./gradlew :composeApp:compileKotlinDesktop -PenableAndroid=false -PenableIos=false --stacktrace
 
       - name: Upload test report
         if: always()

@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# Build the Android native artifacts this app consumes:
-#   • libv2ray.aar          — Xray-core (gomobile build of AndroidLibXrayLite)
-#   • libhev-socks5-tunnel.so — tun2socks, built with this app's JNI package
+# Prepare the Android native artifacts this app consumes:
+#   • libv2ray.aar           — Xray-core, DOWNLOADED prebuilt from the
+#                              AndroidLibXrayLite release matching the submodule
+#                              tag (same approach as v2rayNG — avoids the fragile
+#                              gomobile-from-source build).
+#   • libhev-socks5-tunnel.so — tun2socks, built from the submodule with this
+#                              app's JNI package (-DPKGNAME=com/v2ray/compose/vpn).
 #
-# These are the SAME upstreams v2rayNG uses. Requirements: Go 1.22+, gomobile,
-# Android NDK (set NDK_HOME), and the two submodules checked out.
+# Requirements: Android NDK (set NDK_HOME), curl, and the two submodules checked
+# out (the parent v2rayNG repo declares them). Go is NOT required.
 #
 # Usage (from compose-multiplatform/):
 #   NDK_HOME=/path/to/ndk ./scripts/build-native-android.sh
@@ -13,24 +17,23 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 : "${NDK_HOME:?set NDK_HOME to your Android NDK}"
 
-# The parent v2rayNG repo already declares these as submodules; reuse them, or
-# clone standalone if this project lives outside that tree.
 XRAY_SRC="${XRAY_SRC:-$ROOT/../AndroidLibXrayLite}"
 HEV_SRC="${HEV_SRC:-$ROOT/../hev-socks5-tunnel}"
-[ -d "$XRAY_SRC" ] || git clone --recurse-submodules https://github.com/2dust/AndroidLibXrayLite "$XRAY_SRC"
-[ -d "$HEV_SRC" ]  || git clone --recurse-submodules https://github.com/heiher/hev-socks5-tunnel "$HEV_SRC"
 
-echo ">> [1/2] Building libv2ray.aar (Xray-core via gomobile)"
-(
-  cd "$XRAY_SRC"
-  go install golang.org/x/mobile/cmd/gomobile@latest
-  export PATH="$(go env GOPATH)/bin:$PATH"
-  gomobile init
-  go mod tidy
-  gomobile bind -target=android -androidapi 24 -o "$ROOT/composeApp/libs/libv2ray.aar" .
-)
+# ---- 1) libv2ray.aar (prebuilt download) ------------------------------------
+mkdir -p composeApp/libs
+if [ -e "$XRAY_SRC/.git" ]; then
+  TAG="$(git -C "$XRAY_SRC" describe --tags --abbrev=0)"
+else
+  TAG="${LIBV2RAY_TAG:?AndroidLibXrayLite submodule missing; set LIBV2RAY_TAG}"
+fi
+echo ">> [1/2] downloading libv2ray.aar @ $TAG"
+curl -fL --retry 3 -o composeApp/libs/libv2ray.aar \
+  "https://github.com/2dust/AndroidLibXrayLite/releases/download/${TAG}/libv2ray.aar"
 
-echo ">> [2/2] Building libhev-socks5-tunnel.so (tun2socks, PKGNAME=com/v2ray/compose/vpn)"
+# ---- 2) libhev-socks5-tunnel.so (ndk-build from submodule) ------------------
+[ -d "$HEV_SRC" ] || { echo "hev-socks5-tunnel submodule missing at $HEV_SRC"; exit 1; }
+echo ">> [2/2] building libhev-socks5-tunnel.so (PKGNAME=com/v2ray/compose/vpn)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/jni"
