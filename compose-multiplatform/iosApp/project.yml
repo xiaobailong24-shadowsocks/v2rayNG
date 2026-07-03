@@ -28,9 +28,13 @@ targets:
       - path: iosApp
     dependencies:
       - target: PacketTunnel
-      # Kotlin/Compose shared framework, built by the pre-build script below.
+      # Kotlin/Compose shared framework. Pre-built into
+      # composeApp/build/xcode-frameworks/ before xcodebuild (CI workflow, or
+      # locally: ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64) so both
+      # this target and the PacketTunnel extension resolve `import ComposeApp`. It's
+      # a static framework (isStatic=true) → linked in, not embedded.
       - framework: ../composeApp/build/xcode-frameworks/ComposeApp.framework
-        embed: true
+        embed: false
     info:
       path: iosApp/Info.plist
     settings:
@@ -39,12 +43,6 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         CODE_SIGN_ENTITLEMENTS: iosApp/iosApp.entitlements
-    preBuildScripts:
-      - name: Build Compose framework
-        basedOnDependencyAnalysis: false
-        script: |
-          cd "$SRCROOT/.."
-          ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode
 
   PacketTunnel:
     type: app-extension

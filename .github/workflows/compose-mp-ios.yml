@@ -85,15 +85,35 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Build the shared Kotlin/Compose framework up front and stage it at the
+      # path both Xcode targets reference. Doing it here (rather than an in-Xcode
+      # gradle build phase on the app target) guarantees it exists before the
+      # PacketTunnel extension — an app dependency, so built first — compiles
+      # `import ComposeApp`. iosSimulatorArm64 is the only simulator slice (CMP
+      # 1.11 dropped Apple x86_64), which is why the xcodebuild below pins arm64.
+      - name: Build shared ComposeApp framework (iOS simulator, arm64)
+        working-directory: compose-multiplatform
+        run: |
+          ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64 \
+            -PenableAndroid=false -PenableIos=true
+          DEST="composeApp/build/xcode-frameworks"
+          mkdir -p "$DEST"
+          rm -rf "$DEST/ComposeApp.framework"
+          cp -R composeApp/build/bin/iosSimulatorArm64/debugFramework/ComposeApp.framework "$DEST/"
+          ls -la "$DEST"
+
       - name: Generate Xcode project & build (iOS Simulator, unsigned)
         working-directory: compose-multiplatform/iosApp
         run: |
           xcodegen generate
+          # Pin arm64: the KMP framework has no x86_64 simulator slice, and a
+          # generic simulator destination would otherwise also build x86_64.
           xcodebuild \
             -project iosApp.xcodeproj \
             -scheme iosApp \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
             build
