@@ -53,26 +53,30 @@ core as unavailable.
 
 ## iOS
 
-Sources in `iosApp/PacketTunnel/`:
+The **C library (hev-socks5-tunnel) is bound with Kotlin/Native cinterop** and
+driven from shared `iosMain` Kotlin — no Swift bridging header. The **Go core
+(Xray) stays on gomobile** (safer than bridging the Go runtime through cinterop).
 
 | File | Role |
 |------|------|
-| `PacketTunnelProvider.swift` | `NEPacketTunnelProvider`: tunnel settings, finds the `utun` fd, starts Xray + tun2socks. |
-| `XrayCore.swift` | Wraps `Xraybridge.xcframework` (gomobile). |
-| `Tun2socks.swift` + `PacketTunnel-Bridging-Header.h` | Calls `hev-socks5-tunnel` C API. |
-| `xray-go/` | gomobile-bindable Xray-core package + `build-xray-apple.sh`. |
+| `iosApp/PacketTunnel/PacketTunnelProvider.swift` | `NEPacketTunnelProvider`: tunnel settings, finds the `utun` fd, starts Xray + tun2socks. Calls the shared framework. |
+| `iosApp/PacketTunnel/XrayCore.swift` | Wraps `Xraybridge.xcframework` (gomobile). |
+| `composeApp/.../iosMain/.../vpn/IosTun2socks.kt` | tun2socks driver — calls hev via cinterop, runs it on a worker. Exported to Swift by the ComposeApp framework. |
+| `composeApp/src/nativeInterop/cinterop/hev.def` (+ header) | cinterop binding for `hev-socks5-tunnel`. |
+| `iosApp/PacketTunnel/xray-go/` | gomobile-bindable Xray-core package + `build-xray-apple.sh`. |
 
 ```bash
-cd iosApp/PacketTunnel/xray-go && ./build-xray-apple.sh   # → ../Xraybridge.xcframework
-# build libhev-socks5-tunnel.a for iOS, drop into iosApp/PacketTunnel/libs/
+# 1) Xray-core → Xraybridge.xcframework (gomobile)
+cd iosApp/PacketTunnel/xray-go && ./build-xray-apple.sh
+
+# 2) hev-socks5-tunnel iOS static lib for cinterop
+#    build libhev-socks5-tunnel.a (device + simulator) and place it at
+#    composeApp/src/nativeInterop/cinterop/libs/libhev-socks5-tunnel.a
+
+# 3) generate & open the Xcode project (links ComposeApp.framework into both the
+#    app and the PacketTunnel extension)
 cd ../../ && xcodegen generate && open iosApp.xcodeproj
 ```
-
-> **iOS glue could be slimmed further** by binding hev-socks5-tunnel through
-> Kotlin/Native **cinterop** (a `.def` in the iOS target) and driving tun2socks
-> from `iosMain` Kotlin instead of Swift — cinterop is a clean fit for the pure-C
-> library. The Go core stays on gomobile (safer than bridging the Go runtime
-> through cinterop).
 
 ## Notes
 

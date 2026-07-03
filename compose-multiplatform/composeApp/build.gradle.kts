@@ -43,6 +43,12 @@ kotlin {
                 baseName = "ComposeApp"
                 isStatic = true
             }
+            // tun2socks (hev-socks5-tunnel) bound via cinterop and driven from
+            // iosMain Kotlin — no Swift bridging header. See NATIVE.md.
+            target.compilations.getByName("main").cinterops.create("hev") {
+                defFile(project.file("src/nativeInterop/cinterop/hev.def"))
+                packageName("hev")
+            }
         }
     }
 

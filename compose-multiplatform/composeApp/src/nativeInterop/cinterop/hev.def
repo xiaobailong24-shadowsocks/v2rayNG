@@ -1,0 +1,8 @@
+package = hev
+headers = hev-socks5-tunnel.h
+headerFilter = hev-socks5-tunnel.h
+
+# libhev-socks5-tunnel.a (iOS device + simulator slices) is produced for Apple
+# and placed here; see NATIVE.md. libraryPaths is relative to the def file.
+staticLibraries = libhev-socks5-tunnel.a
+libraryPaths = libs

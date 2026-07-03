@@ -57,13 +57,13 @@ targets:
       # Xray-core (gomobile) — build with PacketTunnel/xray-go/build-xray-apple.sh
       - framework: PacketTunnel/Xraybridge.xcframework
         embed: true
+      # Shared Kotlin/Native framework: provides IosTun2socks, and links
+      # hev-socks5-tunnel via cinterop (no Swift bridging header needed).
+      - framework: ../composeApp/build/xcode-frameworks/ComposeApp.framework
+        embed: false
     info:
       path: PacketTunnel/Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.v2ray.compose.PacketTunnel
         CODE_SIGN_ENTITLEMENTS: PacketTunnel/PacketTunnel.entitlements
-        SWIFT_OBJC_BRIDGING_HEADER: PacketTunnel/PacketTunnel-Bridging-Header.h
-        # hev-socks5-tunnel static lib (build for iOS, drop into PacketTunnel/libs)
-        LIBRARY_SEARCH_PATHS: $(inherited) $(SRCROOT)/PacketTunnel/libs
-        OTHER_LDFLAGS: $(inherited) -lhev-socks5-tunnel

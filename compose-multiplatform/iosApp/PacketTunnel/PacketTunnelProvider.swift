@@ -1,5 +1,6 @@
 import NetworkExtension
 import os
+import ComposeApp
 
 /// Packet Tunnel provider — the iOS counterpart of Android's `V2RayVpnService`.
 ///
@@ -44,12 +45,15 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 return
             }
 
-            // 2) Bridge the utun fd to Xray's SOCKS inbound via tun2socks.
+            // 2) Bridge the utun fd to Xray's SOCKS inbound via tun2socks. The
+            //    engine (hev-socks5-tunnel) is driven from shared Kotlin/Native
+            //    (IosTun2socks, cinterop) exported by the ComposeApp framework.
             guard let fd = self.tunnelFileDescriptor() else {
                 completionHandler(TunnelError.noTunnelFd)
                 return
             }
-            Tun2socks.shared.start(tunnelFd: fd, socksAddress: "127.0.0.1", socksPort: 10808, mtu: 1500)
+            IosTun2socks.shared.start(mtu: 1500, ipv4: "10.10.10.1",
+                                      socksAddress: "127.0.0.1", socksPort: 10808, tunnelFd: fd)
 
             self.log.info("tunnel established")
             completionHandler(nil)
@@ -57,7 +61,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
-        Tun2socks.shared.stop()
+        IosTun2socks.shared.stop()
         XrayCore.shared.stop()
         completionHandler()
     }
