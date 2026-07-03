@@ -76,10 +76,11 @@ The tunnel is fully wired on both platforms — Xray-core (from the Xray JSON th
 `XrayConfigBuilder` produces) exposes a local SOCKS inbound, and hev-socks5-tunnel
 (tun2socks) bridges the OS tunnel interface to it:
 
-* **Android** — `V2RayVpnService` + a JNI bridge (`V2RayBridge` →
-  `cpp/bridge.c`) that links Xray-core (Go c-archive, `cpp/xray/xray.go`, with
-  `VpnService.protect()` socket protection) and hev-socks5-tunnel into
-  `libv2ray.so`.
+* **Android** — consumes the **same prebuilt binaries as v2rayNG**: `libv2ray.aar`
+  (Xray-core, gomobile build of AndroidLibXrayLite) + `libhev-socks5-tunnel.so`
+  (tun2socks). No Go/CMake build lives in this tree. `V2RayVpnService` drives
+  `XrayCore` (→ libv2ray) and `TProxyService` (→ hev). Build the artifacts with
+  `scripts/build-native-android.sh`.
 * **iOS** — `PacketTunnelProvider` + `XrayCore` (gomobile `Xraybridge.xcframework`)
   + `Tun2socks` (hev-socks5-tunnel via a bridging header).
 

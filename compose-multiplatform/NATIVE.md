@@ -1,84 +1,83 @@
 # Native transport (Xray-core + tun2socks)
 
-The shared UI/logic is pure Kotlin, but the actual encrypted tunnel is carried by
-native code — the same pieces v2rayNG uses. This document explains how the native
-layer is wired and how to build it. It is **opt-in**: the app compiles and runs
-(UI, parsing, config generation) without it; connecting just needs the native
-libraries present.
+The shared UI/logic is pure Kotlin; the encrypted tunnel is carried by native
+code — the **same prebuilt binaries v2rayNG uses**, not a from-source Go/NDK
+build in this tree. The native layer is **opt-in**: the app compiles and runs
+(UI, parsing, config generation) without it; connecting just needs the libraries
+present.
 
 ```
  ProfileItem ──XrayConfigBuilder──► Xray JSON
                                        │
         Android                        │                 iOS
- ┌───────────────────────┐            │        ┌────────────────────────────┐
- │ V2RayVpnService (TUN)  │           ▼        │ PacketTunnelProvider (utun) │
- │   └► V2RayBridge (JNI) │   ┌──────────────┐ │   ├► XrayCore (Xraybridge)  │
- │        ├► Xray-core    │◄──┤ SOCKS :10808 ├─►│   └► Tun2socks (hev)        │
- │        └► hev tun2socks│   └──────────────┘ │                              │
- └───────────────────────┘                     └────────────────────────────┘
+ ┌────────────────────────┐           ▼        ┌────────────────────────────┐
+ │ V2RayVpnService (TUN)   │  ┌──────────────┐ │ PacketTunnelProvider (utun) │
+ │  ├► XrayCore→libv2ray.aar│─►│ SOCKS :10808 ├─►│  ├► XrayCore (Xraybridge)  │
+ │  └► TProxyService (hev)  │◄─┤ (Xray-core)  │ │  └► Tun2socks (hev)         │
+ └────────────────────────┘  └──────────────┘ └────────────────────────────┘
 ```
 
-Both platforms run **Xray-core** (exposing a local SOCKS inbound on
-`127.0.0.1:10808`) and **hev-socks5-tunnel** (tun2socks) to bridge the OS tunnel
-interface to that inbound.
+Both platforms run **Xray-core** (local SOCKS inbound on `127.0.0.1:10808`) and
+**hev-socks5-tunnel** (tun2socks) to bridge the OS tunnel interface to it.
 
-## Android
+## Android — prebuilt binaries (mirrors v2rayNG exactly)
 
-Sources live in `composeApp/src/androidMain/cpp/`:
+No Go/CMake build lives in this repo. The app consumes two prebuilt artifacts,
+identical in origin to v2rayNG's:
 
-| File | Role |
-|------|------|
-| `xray/xray.go` | Xray-core wrapped as a C archive (`StartXray`/`StopXray`/`XrayVersion`), with a dialer controller that calls `protect_fd` so Xray's own sockets skip the TUN. |
-| `bridge.c` | JNI shim implementing `V2RayBridge` and the `protect_fd` up-call to `VpnService.protect()`. |
-| `CMakeLists.txt` | Links `bridge.c` + the Xray archive + `hev-socks5-tunnel` into `libv2ray.so`. |
+| Artifact | Where it goes | What it is |
+|----------|---------------|------------|
+| `libv2ray.aar` | `composeApp/libs/` | Xray-core, gomobile build of [AndroidLibXrayLite](https://github.com/2dust/AndroidLibXrayLite). Exposes `libv2ray.CoreController` / `CoreCallbackHandler`. |
+| `libhev-socks5-tunnel.so` | `composeApp/src/androidMain/jniLibs/<abi>/` | [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel), built with `-DPKGNAME=com/v2ray/compose/vpn` → binds to `TProxyService`. |
 
-Build steps:
+Kotlin side (`composeApp/src/androidMain/.../vpn/`):
+* `XrayCore` — interface; the real impl `nativeimpl/LibXrayCore` (in the
+  `androidNative` source set, imports `libv2ray`) is loaded reflectively and only
+  compiled with `-PwithNative=true`.
+* `TProxyService` — JNI wrapper (`TProxyStartService`/`TProxyStopService`/`TProxyGetStats`).
+* `V2RayVpnService` — establishes the TUN (excluding our own package for loop
+  avoidance), starts the core, then hev tun2socks; polls stats; disconnect action.
+
+Build:
 
 ```bash
-cd composeApp/src/androidMain/cpp
-# 1) hev-socks5-tunnel as a git submodule (reused from the parent v2rayNG repo)
-git submodule add https://github.com/heiher/hev-socks5-tunnel hev-socks5-tunnel
-git -C hev-socks5-tunnel submodule update --init
-
-# 2) Xray-core → per-ABI C archives
-ANDROID_NDK_HOME=/path/to/ndk ./xray/build-android.sh
-
-# 3) build the app with the native step enabled
-cd -
+# one-time: fetch + build libv2ray.aar and libhev-socks5-tunnel.so
+NDK_HOME=/path/to/ndk ./scripts/build-native-android.sh
+# then build with the native core enabled
 ./gradlew :composeApp:assembleDebug -PwithNative=true
 ```
 
-Without `-PwithNative=true` the CMake step is skipped and `V2RayBridge.available`
-is `false` at runtime (connecting reports a clear error).
+Without `-PwithNative=true` the `androidNative` source set is excluded and
+`XrayCore.load()` returns null → the UI builds and runs, connecting reports the
+core as unavailable.
 
 ## iOS
 
-Sources live in `iosApp/PacketTunnel/`:
+Sources in `iosApp/PacketTunnel/`:
 
 | File | Role |
 |------|------|
-| `PacketTunnelProvider.swift` | `NEPacketTunnelProvider`: sets tunnel settings, finds the `utun` fd, starts Xray + tun2socks. |
+| `PacketTunnelProvider.swift` | `NEPacketTunnelProvider`: tunnel settings, finds the `utun` fd, starts Xray + tun2socks. |
 | `XrayCore.swift` | Wraps `Xraybridge.xcframework` (gomobile). |
 | `Tun2socks.swift` + `PacketTunnel-Bridging-Header.h` | Calls `hev-socks5-tunnel` C API. |
-| `xray-go/` | The gomobile-bindable Xray-core package + `build-xray-apple.sh`. |
-
-Build steps (macOS):
+| `xray-go/` | gomobile-bindable Xray-core package + `build-xray-apple.sh`. |
 
 ```bash
-cd iosApp/PacketTunnel/xray-go
-./build-xray-apple.sh                      # → ../Xraybridge.xcframework
-
-# Build libhev-socks5-tunnel.a for iOS (device+sim) and drop it in
-#   iosApp/PacketTunnel/libs/    (see hev-socks5-tunnel build docs)
-
-cd ../../
-xcodegen generate && open iosApp.xcodeproj # build the iosApp scheme
+cd iosApp/PacketTunnel/xray-go && ./build-xray-apple.sh   # → ../Xraybridge.xcframework
+# build libhev-socks5-tunnel.a for iOS, drop into iosApp/PacketTunnel/libs/
+cd ../../ && xcodegen generate && open iosApp.xcodeproj
 ```
+
+> **iOS glue could be slimmed further** by binding hev-socks5-tunnel through
+> Kotlin/Native **cinterop** (a `.def` in the iOS target) and driving tun2socks
+> from `iosMain` Kotlin instead of Swift — cinterop is a clean fit for the pure-C
+> library. The Go core stays on gomobile (safer than bridging the Go runtime
+> through cinterop).
 
 ## Notes
 
-* The default generated Xray config has no stats/policy block, so traffic
-  counters report 0. Add a `stats`/`policy`/`api` block to the config and query
-  the Xray stats API to populate them.
-* Xray-core versions in the two `go.mod` files are pinned; refresh with
-  `go get github.com/xtls/xray-core@latest && go mod tidy`.
+* The default generated Xray config has no `stats`/`policy`/`api` block, so
+  Android traffic counters come from hev (`TProxyGetStats`); the iOS side can add
+  the same.
+* Xray-core versions track the AndroidLibXrayLite / gomobile package pins; refresh
+  upstream and rebuild.

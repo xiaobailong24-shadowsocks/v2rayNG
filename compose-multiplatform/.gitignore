@@ -25,9 +25,10 @@ compose-desktop/
 *.png
 !docs/**/*.png
 
-# Native build outputs
-**/cpp/xray/out/
-**/cpp/hev-socks5-tunnel/
+# Native prebuilt artifacts (produced by scripts/build-native-android.sh etc.)
+composeApp/libs/*.aar
+composeApp/libs/*.jar
+**/jniLibs/**/*.so
 **/PacketTunnel/libs/
 **/*.xcframework/
 *.a

@@ -69,13 +69,20 @@ kotlin {
             implementation(libs.kotlinx.coroutines.swing)
         }
         if (androidEnabled) {
+            val withNative = providers.gradleProperty("withNative").getOrElse("false") == "true"
             named("androidMain").configure {
                 dependencies {
                     implementation("androidx.activity:activity-compose:1.9.3")
                     implementation("androidx.core:core-ktx:1.13.1")
                     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
                     implementation(libs.kotlinx.coroutines.android)
+                    // Xray-core: prebuilt libv2ray.aar (gomobile build of
+                    // AndroidLibXrayLite). Absent = empty, UI still builds. See NATIVE.md.
+                    implementation(project.fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
                 }
+                // The libv2ray-dependent core wrapper is only compiled for full
+                // (native) builds; without it XrayCore.load() returns null.
+                if (withNative) kotlin.srcDir("src/androidNative/kotlin")
             }
         }
     }
