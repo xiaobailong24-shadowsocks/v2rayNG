@@ -13,6 +13,7 @@ on:
 
 env:
   NDK_VERSION: '27.2.12479018'
+  ENABLE_ANDROID: 'true'   # puts AGP on the buildscript classpath (root build.gradle.kts)
 
 defaults:
   run:
@@ -34,7 +35,7 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Install SDK platform, NDK + CMake
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;${NDK_VERSION}" "cmake;3.22.1"
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;${NDK_VERSION}" "cmake;3.22.1"
 
       - uses: gradle/actions/setup-gradle@v4
 

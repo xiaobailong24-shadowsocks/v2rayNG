@@ -52,16 +52,18 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE/hev-socks5-tunnel"
           git submodule update --init --recursive
-          cmake -B build-sim \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_SYSROOT=iphonesimulator \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
-            -DENABLE_LIBRARY=1
-          cmake --build build-sim --config Release
+          SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          # hev uses a Makefile (not CMake). -DENABLE_LIBRARY drops main() and
+          # builds the static library form (libhev-socks5-tunnel.a).
+          make -j"$(sysctl -n hw.ncpu)" \
+            CC="$(xcrun --sdk iphonesimulator -f clang)" \
+            CPPFLAGS="-DENABLE_LIBRARY" \
+            CFLAGS="-arch arm64 -isysroot $SDK -mios-simulator-version-min=15.0"
+          echo "--- produced archives ---"; find . -name '*.a'
           DEST="$GITHUB_WORKSPACE/compose-multiplatform/composeApp/src/nativeInterop/cinterop/libs"
           mkdir -p "$DEST"
-          find build-sim -name 'libhev-socks5-tunnel.a' -exec cp {} "$DEST/" \;
+          find . -name 'libhev-socks5-tunnel.a' -exec cp {} "$DEST/" \;
+          test -f "$DEST/libhev-socks5-tunnel.a"
 
       - uses: gradle/actions/setup-gradle@v4
 
