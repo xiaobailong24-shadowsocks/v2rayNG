@@ -12,7 +12,11 @@ on:
 
 jobs:
   ios:
-    runs-on: macos-14   # Apple silicon; iosSimulatorArm64 slice
+    # Apple silicon; iosSimulatorArm64 slice. Needs macos-15+: Compose MP 1.11's
+    # UIKit interop references UIViewLayoutRegion / the UIUtilities framework
+    # (iOS 18.4+ SDK). macos-14 tops out at Xcode 16.2 (SDK 18.2) and the final
+    # appex link fails with "Undefined symbols: _OBJC_CLASS_$_UIViewLayoutRegion".
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
         with:
