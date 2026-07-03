@@ -6,7 +6,7 @@ import com.android.build.gradle.LibraryExtension
 
 extensions.configure<LibraryExtension>("android") {
     namespace = (extra["v2ray.android.namespace"] as? String) ?: "com.v2ray.compose.core"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         minSdk = 24
     }

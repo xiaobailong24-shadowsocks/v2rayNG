@@ -40,7 +40,8 @@ kotlin {
     }
 
     if (iosEnabled) {
-        iosX64()
+        // Apple x86_64 (iosX64/macosX64) was removed in Compose Multiplatform 1.11 /
+        // recent Kotlin; device + Apple-silicon simulator cover all supported hosts.
         iosArm64()
         iosSimulatorArm64()
     }

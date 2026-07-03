@@ -11,6 +11,10 @@ code lives here in shared `commonMain`, and the transport uses the same native
 pieces (Xray-core via `libXray`, plus a tun2socks bridge) behind a thin
 per-platform tunnel layer.
 
+Built on the current toolchain: **Kotlin 2.4.0**, **Compose Multiplatform 1.11.1**,
+kotlinx-coroutines/serialization 1.11.0, AGP 8.13.0, Android SDK 36. (Compose MP
+1.11 dropped Apple x86_64, so the iOS slices are `iosArm64` + `iosSimulatorArm64`.)
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     commonMain (shared)                      │
@@ -82,18 +86,22 @@ core, exactly as in v2rayNG:
 
 ## Verification status
 
-Because this sandbox has no Android SDK and no access to Google's Maven
-repository (which serves AndroidX / the Compose Android runtime), automated
-verification here covers the parts that resolve from Maven Central:
+Since Compose Multiplatform 1.8 the Compose libraries are unified with AndroidX,
+so **all** Compose artifacts — desktop included — now resolve from Google's Maven
+repository. This sandbox's egress policy blocks Google Maven and ships no Android
+SDK, so automated verification here covers everything that resolves from Maven
+Central:
 
-* ✅ **`:core:jvmTest` — 36 tests passing**: link parsing & round-trips for every
-  protocol, subscription decoding, Xray config generation, repository behaviour,
-  and full `AppViewModel` interaction logic (import / connect-toggle /
-  subscription CRUD).
-* ✅ **`:composeApp:compileKotlinDesktop`** — the entire shared Compose UI
-  type-checks and compiles.
-* ▶️ **`:composeApp:run` / `:screenshot`** and the Android/iOS builds require a
-  normal developer machine (Google Maven reachable, SDK / Xcode installed).
+* ✅ **`:core:jvmTest` — 36 tests passing on Kotlin 2.4.0**: link parsing &
+  round-trips for every protocol, subscription decoding, Xray config generation,
+  repository behaviour, and full `AppViewModel` interaction logic (import /
+  connect-toggle / subscription CRUD).
+* ✅ **`:composeApp` configures on Compose Multiplatform 1.11.1** — the Gradle
+  build, Compose plugin and DSL resolve and evaluate cleanly.
+* ▶️ **Compose compilation and `:run` / `:screenshot`**, plus the Android/iOS
+  builds, require a normal developer machine where Google Maven is reachable and
+  the SDK / Xcode are installed. The shared Compose UI is otherwise unchanged from
+  when it compiled clean against the previous Compose release.
 
 ## License
 

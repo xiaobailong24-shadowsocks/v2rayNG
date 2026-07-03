@@ -36,7 +36,9 @@ kotlin {
     }
 
     if (iosEnabled) {
-        listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
+        // Apple x86_64 (iosX64) was removed in Compose Multiplatform 1.11; ship the
+        // ARM device slice plus the Apple-silicon simulator slice.
+        listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
             target.binaries.framework {
                 baseName = "ComposeApp"
                 isStatic = true

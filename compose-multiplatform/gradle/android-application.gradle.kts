@@ -3,12 +3,12 @@ import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
 
 extensions.configure<BaseAppModuleExtension>("android") {
     namespace = (extra["v2ray.android.namespace"] as? String) ?: "com.v2ray.compose"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.v2ray.compose"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
     }
