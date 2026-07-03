@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose draws the UI; this base theme only needs to be a non-action-bar
+         Material theme so the splash/window background is correct. -->
+    <style name="Theme.V2rayCompose" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

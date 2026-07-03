@@ -1,0 +1,26 @@
+# Gradle / build
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+*.iws
+.fleet/
+.vscode/
+
+# macOS / Xcode
+.DS_Store
+iosApp/iosApp.xcodeproj/
+iosApp/*.xcworkspace/
+xcuserdata/
+*.xcuserstate
+
+# Desktop packaging output
+compose-desktop/
+*.png
+!docs/**/*.png
