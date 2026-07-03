@@ -51,6 +51,10 @@ kotlin {
                 // The .def's `headers =` entry is resolved via the compiler include
                 // path, not relative to the def file — point it at the header's dir.
                 includeDirs(project.file("src/nativeInterop/cinterop"))
+                // Same for `staticLibraries =`: the search path must be absolute
+                // (a relative libraryPaths in the .def resolves against the
+                // cinterop tool's CWD, not the def file).
+                extraOpts("-libraryPath", project.file("src/nativeInterop/cinterop/libs").absolutePath)
             }
         }
     }

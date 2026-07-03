@@ -2,7 +2,9 @@ package = hev
 headers = hev-socks5-tunnel.h
 headerFilter = hev-socks5-tunnel.h
 
-# libhev-socks5-tunnel.a (iOS device + simulator slices) is produced for Apple
-# and placed here; see NATIVE.md. libraryPaths is relative to the def file.
+# libhev-socks5-tunnel.a: fat archive (hev + lwip + hev-task-system + yaml) built
+# by the CI workflow / NATIVE.md steps and placed in the libs/ dir next to this
+# file. The search path is passed from build.gradle.kts via
+# extraOpts("-libraryPath", ...) — a relative `libraryPaths` entry here would be
+# resolved against the cinterop tool's working directory, not this file.
 staticLibraries = libhev-socks5-tunnel.a
-libraryPaths = libs
