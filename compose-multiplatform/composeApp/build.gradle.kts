@@ -101,20 +101,13 @@ kotlin {
     }
 }
 
-// On a desktop/JVM-only build the Compose Multiplatform lifecycle libraries are
-// provided by the `org.jetbrains.androidx.lifecycle` artifacts (Maven Central);
-// the `androidx.lifecycle` / `androidx.arch.core` group artifacts are only needed
-// by the Android and iOS targets (since CMP 1.9 the lifecycle *klibs* also ship
-// under the androidx group). Excluding them on the desktop-only path lets that
-// build resolve without Google's Maven repository — but they must NOT be excluded
-// when the iOS target is on, or the Kotlin/Native compile loses its lifecycle
-// dependency klibs ("KLIB resolver: Could not find androidx.lifecycle:…").
-if (!androidEnabled && !iosEnabled) {
-    configurations.configureEach {
-        exclude(group = "androidx.lifecycle")
-        exclude(group = "androidx.arch.core")
-    }
-}
+// NOTE: earlier revisions excluded the androidx.lifecycle/androidx.arch.core
+// groups on non-Android builds so the desktop app could resolve without Google's
+// Maven repo. Since CMP 1.9 unified lifecycle with AndroidX that exclusion is
+// both pointless (every Compose artifact — desktop included — ships from Google
+// Maven anyway) and harmful: the iOS compile needs those groups' *klibs*, and the
+// desktop *runtime* needs androidx.lifecycle.LifecycleOwner (ImageComposeScene
+// dies with NoClassDefFoundError without it, even though compilation succeeds).
 
 compose.desktop {
     application {
