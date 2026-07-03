@@ -32,6 +32,16 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      # The macos-14 image selects Xcode 15.4 by default, but xcodegen emits the
+      # Xcode 16 project format (objectVersion 77), which 15.4 refuses to open.
+      # Switch to the newest Xcode installed on the runner.
+      - name: Select the latest installed Xcode
+        run: |
+          LATEST="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          echo "Selecting $LATEST"
+          sudo xcode-select -switch "$LATEST/Contents/Developer"
+          xcodebuild -version
+
       # macOS runners also ship an Android SDK; force the Kotlin build to the iOS
       # targets only (the Xcode pre-build script calls ./gradlew without flags, so
       # set it in gradle.properties).
