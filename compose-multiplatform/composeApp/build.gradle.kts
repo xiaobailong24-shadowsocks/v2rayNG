@@ -117,9 +117,39 @@ compose.desktop {
     }
 }
 
+// Configure the (already-applied) Android Application extension *dynamically*.
+// A direct `com.android.build.api.dsl.*` reference — inline or via apply(from=) —
+// forces this script to compile against AGP, which the desktop / verify / sandbox
+// path deliberately keeps off the classpath (no Google Maven, no SDK). An applied
+// script can't resolve AGP either (it doesn't inherit the buildscript classpath).
+// withGroovyBuilder names no com.android.* type at compile time and configures the
+// real extension at runtime, only when androidEnabled and the plugin is present.
+// (Manifest/res/jniLibs default to src/androidMain/… for a KMP androidTarget.)
 if (androidEnabled) {
-    extra["v2ray.android.namespace"] = "com.v2ray.compose"
-    apply(from = rootProject.file("gradle/android-application.gradle.kts"))
+    extensions.getByName("android").withGroovyBuilder {
+        setProperty("namespace", "com.v2ray.compose")
+        setProperty("compileSdk", 35)
+        "defaultConfig" {
+            setProperty("applicationId", "com.v2ray.compose")
+            setProperty("minSdk", 24)
+            setProperty("targetSdk", 35)
+            setProperty("versionCode", 1)
+            setProperty("versionName", "1.0.0")
+        }
+        "compileOptions" {
+            setProperty("sourceCompatibility", JavaVersion.VERSION_17)
+            setProperty("targetCompatibility", JavaVersion.VERSION_17)
+        }
+        "buildFeatures" {
+            setProperty("compose", true)
+        }
+        "packaging" {
+            "resources" {
+                @Suppress("UNCHECKED_CAST")
+                (getProperty("excludes") as MutableSet<String>).add("/META-INF/{AL2.0,LGPL2.1}")
+            }
+        }
+    }
 }
 
 // Headless offscreen render of the shared UI for visual verification.

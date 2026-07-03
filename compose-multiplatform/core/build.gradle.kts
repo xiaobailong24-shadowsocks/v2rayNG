@@ -68,9 +68,21 @@ kotlin {
     }
 }
 
+// Configure the Android Library extension dynamically so this script compiles
+// without AGP on the classpath (the JVM-only verify/sandbox path). withGroovyBuilder
+// names no com.android.* type at compile time; see composeApp/build.gradle.kts.
 if (androidEnabled) {
-    extra["v2ray.android.namespace"] = "com.v2ray.compose.core"
-    apply(from = rootProject.file("gradle/android-library.gradle.kts"))
+    extensions.getByName("android").withGroovyBuilder {
+        setProperty("namespace", "com.v2ray.compose.core")
+        setProperty("compileSdk", 35)
+        "defaultConfig" {
+            setProperty("minSdk", 24)
+        }
+        "compileOptions" {
+            setProperty("sourceCompatibility", JavaVersion.VERSION_17)
+            setProperty("targetCompatibility", JavaVersion.VERSION_17)
+        }
+    }
 }
 
 fun resolveTargetFlag(prop: String, auto: () -> Boolean): Boolean =
