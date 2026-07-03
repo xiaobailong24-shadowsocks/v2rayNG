@@ -26,6 +26,7 @@ class AndroidVpnController(private val context: Context) : VpnController {
             action = V2RayVpnService.ACTION_START
             putExtra(V2RayVpnService.EXTRA_CONFIG_PATH, configFile.absolutePath)
             putExtra(V2RayVpnService.EXTRA_PROFILE_ID, profile.id)
+            putExtra(V2RayVpnService.EXTRA_SERVER_ADDRESS, profile.server)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent)

@@ -1,6 +1,13 @@
 [versions]
 kotlin = "2.4.0"
 compose = "1.11.1"
+# Compose Multiplatform decouples some artifact versions from the plugin version.
+# These are the exact versions the Compose 1.11.1 Gradle plugin resolves
+# (from its ComposeBuildConfig): material3 1.9.0, and material-icons-extended is
+# pinned at 1.7.3 upstream. Kept explicit so the deprecated `compose.*` DSL
+# aliases can be dropped in favour of direct dependencies.
+composeMaterial3 = "1.9.0"
+composeIcons = "1.7.3"
 agp = "8.13.0"
 coroutines = "1.11.0"
 serialization = "1.11.0"
@@ -14,6 +21,16 @@ kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+
+# Compose Multiplatform libraries (direct dependencies; replaces the deprecated
+# compose.* Gradle DSL aliases). The compose.desktop.* accessors are not
+# deprecated and remain in build scripts.
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
+compose-materialIconsExtended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "composeIcons" }
+compose-components-uiToolingPreview = { module = "org.jetbrains.compose.components:components-ui-tooling-preview", version.ref = "compose" }
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

@@ -72,17 +72,20 @@ cd iosApp && xcodegen generate && open iosApp.xcodeproj
 
 ## Native transport integration
 
-The tunnel scaffolding is complete; two `INTEGRATION` points wire in the native
-core, exactly as in v2rayNG:
+The tunnel is fully wired on both platforms — Xray-core (from the Xray JSON that
+`XrayConfigBuilder` produces) exposes a local SOCKS inbound, and hev-socks5-tunnel
+(tun2socks) bridges the OS tunnel interface to it:
 
-* **Android** — `composeApp/.../vpn/V2RayVpnService.kt` establishes the `TUN`
-  interface. Drop in `AndroidLibXrayLite` (`libXray`) to run Xray-core from the
-  JSON produced by `XrayConfigBuilder`, and `hev-socks5-tunnel` to bridge the TUN
-  fd to the local SOCKS inbound (`127.0.0.1:10808`). Both `.so`s already exist in
-  the parent v2rayNG repository.
-* **iOS** — `iosApp/PacketTunnel/PacketTunnelProvider.swift` sets up
-  `NEPacketTunnelNetworkSettings`; add Xray-core (as an `xcframework`) + tun2socks
-  reading from `packetFlow`.
+* **Android** — `V2RayVpnService` + a JNI bridge (`V2RayBridge` →
+  `cpp/bridge.c`) that links Xray-core (Go c-archive, `cpp/xray/xray.go`, with
+  `VpnService.protect()` socket protection) and hev-socks5-tunnel into
+  `libv2ray.so`.
+* **iOS** — `PacketTunnelProvider` + `XrayCore` (gomobile `Xraybridge.xcframework`)
+  + `Tun2socks` (hev-socks5-tunnel via a bridging header).
+
+The native layer is **opt-in** (build with `-PwithNative=true` / the iOS build
+scripts) and degrades gracefully when absent. Full build instructions:
+[NATIVE.md](NATIVE.md).
 
 ## Verification status
 

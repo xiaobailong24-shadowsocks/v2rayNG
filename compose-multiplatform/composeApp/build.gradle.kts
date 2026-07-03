@@ -51,12 +51,13 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
-            implementation(compose.ui)
-            implementation(compose.components.uiToolingPreview)
+            // Direct dependencies instead of the deprecated compose.* DSL aliases.
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.materialIconsExtended)
+            implementation(libs.compose.ui)
+            implementation(libs.compose.components.uiToolingPreview)
             implementation(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {
@@ -112,7 +113,7 @@ if (androidEnabled) {
 tasks.register<JavaExec>("screenshot") {
     dependsOn("desktopMainClasses")
     val comp = kotlin.targets.getByName("desktop").compilations.getByName("main")
-    classpath = comp.output.allOutputs + comp.runtimeDependencyFiles
+    classpath = comp.output.allOutputs + (comp.runtimeDependencyFiles ?: files())
     mainClass.set("com.v2ray.compose.ui.ScreenshotKt")
 }
 

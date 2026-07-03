@@ -24,3 +24,11 @@ xcuserdata/
 compose-desktop/
 *.png
 !docs/**/*.png
+
+# Native build outputs
+**/cpp/xray/out/
+**/cpp/hev-socks5-tunnel/
+**/PacketTunnel/libs/
+**/*.xcframework/
+*.a
+go.sum

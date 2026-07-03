@@ -7,9 +7,12 @@ import com.v2ray.compose.core.vpn.VpnController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import platform.Foundation.NSNotificationCenter
 import platform.NetworkExtension.NETunnelProviderManager
 import platform.NetworkExtension.NETunnelProviderProtocol
 import platform.NetworkExtension.NEVPNStatus
+import platform.NetworkExtension.NEVPNStatusDidChangeNotification
+import platform.darwin.NSObjectProtocol
 
 /**
  * iOS [VpnController] driving a Packet Tunnel provider.
@@ -24,6 +27,20 @@ class IosVpnController : VpnController {
 
     private val _stats = MutableStateFlow(ConnectionStats())
     override val stats: StateFlow<ConnectionStats> = _stats.asStateFlow()
+
+    private var statusObserver: NSObjectProtocol? = null
+
+    /** Reflect the real tunnel status (connecting/connected/disconnected) into the UI. */
+    private fun observeStatus(manager: NETunnelProviderManager) {
+        statusObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
+        statusObserver = NSNotificationCenter.defaultCenter.addObserverForName(
+            name = NEVPNStatusDidChangeNotification,
+            `object` = manager.connection,
+            queue = null,
+        ) { _ ->
+            _stats.value = _stats.value.copy(status = mapStatus(manager.connection.status))
+        }
+    }
 
     override suspend fun start(profile: ProfileItem, xrayConfigJson: String) {
         _stats.value = ConnectionStats(status = ConnectionStatus.CONNECTING, activeProfileId = profile.id)
@@ -50,6 +67,7 @@ class IosVpnController : VpnController {
                     _stats.value = ConnectionStats(status = ConnectionStatus.ERROR, message = saveError.localizedDescription)
                     return@saveToPreferencesWithCompletionHandler
                 }
+                observeStatus(manager)
                 runCatching { manager.connection.startVPNTunnelAndReturnError(null) }
                     .onSuccess {
                         _stats.value = ConnectionStats(status = ConnectionStatus.CONNECTED, activeProfileId = profile.id)
@@ -69,7 +87,6 @@ class IosVpnController : VpnController {
         }
     }
 
-    @Suppress("unused")
     private fun mapStatus(status: NEVPNStatus): ConnectionStatus = when (status) {
         NEVPNStatus.NEVPNStatusConnected -> ConnectionStatus.CONNECTED
         NEVPNStatus.NEVPNStatusConnecting, NEVPNStatus.NEVPNStatusReasserting -> ConnectionStatus.CONNECTING
