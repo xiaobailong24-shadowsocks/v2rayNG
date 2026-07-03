@@ -1,0 +1,61 @@
+name: Compose MP · Android
+
+# Full Android build: produces the native artifacts (libv2ray.aar via gomobile,
+# libhev-socks5-tunnel.so via ndk-build) from the AndroidLibXrayLite and
+# hev-socks5-tunnel submodules, then assembles the APK with the native core.
+
+on:
+  push:
+    branches: [master, claude/ios-alternatives-research-l8ebbb]
+    paths: ['compose-multiplatform/**', '.github/workflows/compose-mp-android.yml']
+  workflow_dispatch:
+
+env:
+  NDK_VERSION: '27.2.12479018'
+
+defaults:
+  run:
+    working-directory: compose-multiplatform
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive   # AndroidLibXrayLite + hev-socks5-tunnel
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install NDK + CMake
+        run: sdkmanager "ndk;${NDK_VERSION}" "cmake;3.22.1"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build native artifacts (libv2ray.aar + libhev-socks5-tunnel.so)
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          ./scripts/build-native-android.sh
+
+      - name: Assemble debug APK (with native core)
+        run: ./gradlew :composeApp:assembleDebug -PwithNative=true --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: composeApp-debug-apk
+          path: compose-multiplatform/composeApp/build/outputs/apk/**/*.apk
+          if-no-files-found: warn

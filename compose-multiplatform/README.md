@@ -107,6 +107,17 @@ Central:
   the SDK / Xcode are installed. The shared Compose UI is otherwise unchanged from
   when it compiled clean against the previous Compose release.
 
+### CI
+
+GitHub Actions workflows (`.github/workflows/compose-mp-*.yml`) run the full
+matrix on GitHub infra, where Google Maven is reachable:
+
+| Workflow | Runner | Does |
+|----------|--------|------|
+| `compose-mp-verify` | ubuntu | `:core:jvmTest` + compiles the whole shared Compose UI (`compileKotlinDesktop`). |
+| `compose-mp-android` | ubuntu | builds `libv2ray.aar` + `libhev-socks5-tunnel.so` from the submodules, then `assembleDebug -PwithNative=true`; uploads the APK. |
+| `compose-mp-ios` | macos-14 | builds the Xray xcframework + hev static lib, then `xcodebuild` for the iOS Simulator (unsigned). |
+
 ## License
 
 Inherits the v2rayNG project license (see the repository root `LICENSE`).
