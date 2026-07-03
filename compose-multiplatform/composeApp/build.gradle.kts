@@ -48,6 +48,9 @@ kotlin {
             target.compilations.getByName("main").cinterops.create("hev") {
                 defFile(project.file("src/nativeInterop/cinterop/hev.def"))
                 packageName("hev")
+                // The .def's `headers =` entry is resolved via the compiler include
+                // path, not relative to the def file — point it at the header's dir.
+                includeDirs(project.file("src/nativeInterop/cinterop"))
             }
         }
     }
@@ -96,10 +99,13 @@ kotlin {
 
 // On a desktop/JVM-only build the Compose Multiplatform lifecycle libraries are
 // provided by the `org.jetbrains.androidx.lifecycle` artifacts (Maven Central);
-// the real AndroidX `androidx.lifecycle` / `androidx.arch.core` transitives are
-// only needed by the Android target. Excluding them when Android is disabled lets
-// the desktop build resolve without Google's Maven repository.
-if (!androidEnabled) {
+// the `androidx.lifecycle` / `androidx.arch.core` group artifacts are only needed
+// by the Android and iOS targets (since CMP 1.9 the lifecycle *klibs* also ship
+// under the androidx group). Excluding them on the desktop-only path lets that
+// build resolve without Google's Maven repository — but they must NOT be excluded
+// when the iOS target is on, or the Kotlin/Native compile loses its lifecycle
+// dependency klibs ("KLIB resolver: Could not find androidx.lifecycle:…").
+if (!androidEnabled && !iosEnabled) {
     configurations.configureEach {
         exclude(group = "androidx.lifecycle")
         exclude(group = "androidx.arch.core")

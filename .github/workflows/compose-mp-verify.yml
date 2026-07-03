@@ -38,6 +38,18 @@ jobs:
       - name: Compile shared Compose UI (desktop)
         run: ./gradlew :composeApp:compileKotlinDesktop -PenableAndroid=false -PenableIos=false --stacktrace
 
+      # Offscreen Skia render of the real shared UI (ImageComposeScene — no
+      # display server needed). The PNG artifact is a visual check of what ships.
+      - name: Render UI screenshot (headless)
+        run: ./gradlew :composeApp:screenshot -PenableAndroid=false -PenableIos=false --stacktrace
+
+      - name: Upload UI screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshot
+          path: compose-multiplatform/composeApp/app-preview.png
+          if-no-files-found: error
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
