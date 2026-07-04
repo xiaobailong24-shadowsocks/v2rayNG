@@ -40,7 +40,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Instrumented tests on emulator
-        uses: reactivecircle/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           target: google_apis
