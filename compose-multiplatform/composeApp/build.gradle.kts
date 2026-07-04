@@ -97,6 +97,16 @@ kotlin {
                 // (native) builds; without it XrayCore.load() returns null.
                 if (withNative) kotlin.srcDir("src/androidNative/kotlin")
             }
+            // On-device instrumented tests (run on an emulator in CI) — the real
+            // runtime proof for the Android build.
+            named("androidInstrumentedTest").configure {
+                dependencies {
+                    implementation("androidx.test.ext:junit:1.2.1")
+                    implementation("androidx.test:runner:1.6.2")
+                    implementation("androidx.test:core-ktx:1.6.1")
+                    implementation(libs.kotlinx.coroutines.core)
+                }
+            }
         }
     }
 }
@@ -138,6 +148,7 @@ if (androidEnabled) {
             setProperty("targetSdk", 35)
             setProperty("versionCode", 1)
             setProperty("versionName", "1.0.0")
+            setProperty("testInstrumentationRunner", "androidx.test.runner.AndroidJUnitRunner")
         }
         "compileOptions" {
             setProperty("sourceCompatibility", JavaVersion.VERSION_17)

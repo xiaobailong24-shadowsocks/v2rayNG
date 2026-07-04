@@ -1,0 +1,64 @@
+name: Compose MP · Android (emulator)
+
+# Runtime proof for the Android build: boots an Android emulator and runs the
+# on-device instrumented tests (androidInstrumentedTest) — real Compose UI on a
+# real Android runtime, real SharedPreferences persistence, real ConfigParser +
+# XrayConfigBuilder, and a launch of the real MainActivity. No native core is
+# needed (the tunnel service is never started), so this builds with
+# -PwithNative=false and without the submodules.
+
+on:
+  push:
+    branches: [master, claude/ios-alternatives-research-l8ebbb]
+    paths: ['compose-multiplatform/**', '.github/workflows/compose-mp-android-emulator.yml']
+  workflow_dispatch:
+
+env:
+  ENABLE_ANDROID: 'true'   # puts AGP on the buildscript classpath (root build.gradle.kts)
+
+jobs:
+  instrumented:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # KVM enables hardware acceleration for the x86_64 emulator.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Instrumented tests on emulator
+        uses: reactivecircle/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          working-directory: compose-multiplatform
+          disable-animations: true
+          script: |
+            # Install the app first so the VPN consent app-op can be pre-granted;
+            # then MainActivity's VpnService.prepare() returns null and no system
+            # dialog blocks the launch test from reaching RESUMED.
+            ./gradlew :composeApp:installDebug -PenableAndroid=true -PenableIos=false -PwithNative=false --stacktrace
+            adb shell appops set com.v2ray.compose ACTIVATE_VPN allow || true
+            ./gradlew :composeApp:connectedDebugAndroidTest -PenableAndroid=true -PenableIos=false -PwithNative=false --stacktrace
+
+      - name: Upload instrumented test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-instrumented-test-report
+          path: compose-multiplatform/composeApp/build/reports/androidTests/
+          if-no-files-found: ignore
