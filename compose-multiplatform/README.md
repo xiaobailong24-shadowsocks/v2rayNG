@@ -90,8 +90,8 @@ scripts) and degrades gracefully when absent. Full build instructions:
 
 ## Verification status
 
-**All three CI workflows are green** — every platform builds end-to-end on
-GitHub Actions:
+**All four CI workflows are green** — every platform builds end-to-end on
+GitHub Actions, and Android is additionally verified **running on a device**:
 
 * ✅ **verify** — `:core:jvmTest` (36 tests on Kotlin 2.4.0: link parsing &
   round-trips for every protocol, subscription decoding, Xray config generation,
@@ -102,6 +102,13 @@ GitHub Actions:
 * ✅ **android** — debug APK with the native core (prebuilt `libv2ray.aar`
   Xray-core + `libhev-socks5-tunnel.so` built from the submodule), uploaded as
   the `composeApp-debug-apk` artifact.
+* ✅ **android (emulator)** — **on-device instrumented tests** on an x86_64
+  emulator: the real `MainActivity` launches and composes the whole shared UI on
+  a live Android runtime, and an end-to-end flow imports a share link → parses it
+  (`ConfigParser`) → builds valid Xray JSON (`XrayConfigBuilder`) → toggles the
+  connection through `AppViewModel` → persists it across a real SharedPreferences
+  reopen. Only the tunnel transport is stubbed (a live Xray tunnel needs a real
+  server); everything up to handing Xray-core its config is exercised for real.
 * ✅ **ios** — Xray gomobile xcframework + hev static lib (Kotlin/Native
   cinterop) + shared `ComposeApp.framework`, then `xcodebuild` builds the app
   **and the `PacketTunnel` network extension** for the iOS Simulator (unsigned).
@@ -120,6 +127,7 @@ matrix on GitHub infra, where Google Maven is reachable:
 |----------|--------|------|
 | `compose-mp-verify` | ubuntu | `:core:jvmTest` + compiles the shared Compose UI (`compileKotlinDesktop`) + headless UI screenshot artifact. |
 | `compose-mp-android` | ubuntu | downloads the release `libv2ray.aar`, builds `libhev-socks5-tunnel.so` from the submodule, then `assembleDebug -PwithNative=true`; uploads the APK. |
+| `compose-mp-android-emulator` | ubuntu + KVM | boots an x86_64 emulator and runs `connectedDebugAndroidTest` — on-device launch + end-to-end import/parse/config/persist flow. |
 | `compose-mp-ios` | macos-15 | builds the Xray xcframework + hev static lib + `ComposeApp.framework`, then `xcodebuild` (app + PacketTunnel extension) for the iOS Simulator (unsigned). macos-15+ required — CMP 1.11 links against iOS 18.4+ SDK symbols. |
 
 ## License
