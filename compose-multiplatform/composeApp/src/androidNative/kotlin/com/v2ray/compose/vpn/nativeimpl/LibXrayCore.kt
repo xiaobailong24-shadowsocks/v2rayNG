@@ -2,6 +2,7 @@ package com.v2ray.compose.vpn.nativeimpl
 
 import android.content.Context
 import android.provider.Settings
+import android.util.Base64
 import android.util.Log
 import com.v2ray.compose.vpn.XrayCore
 import go.Seq
@@ -30,11 +31,28 @@ class LibXrayCore : XrayCore {
         if (envReady) return
         Seq.setContext(context.applicationContext)
         val assetPath = File(context.filesDir, "assets").apply { mkdirs() }.absolutePath
-        val deviceId = runCatching {
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-        }.getOrNull().orEmpty()
-        Libv2ray.initCoreEnv(assetPath, deviceId)
+        Libv2ray.initCoreEnv(assetPath, xudpBaseKey(context))
         envReady = true
+    }
+
+    /**
+     * The 2nd `initCoreEnv` argument becomes Xray's `xray.xudp.basekey` env flag,
+     * which Xray **base64-decodes (RawURLEncoding) and requires to be exactly 32
+     * bytes** — otherwise it `panic()`s ("BaseKey must be 32 bytes") and aborts the
+     * whole process the first time an XUDP (UDP-over-VLESS/VMess) connection is
+     * built. gomobile can't recover a panic raised in Xray's own goroutine, so it
+     * surfaces as a native SIGABRT, not a catchable exception.
+     *
+     * Passing the raw ANDROID_ID (e.g. 16 hex chars → 12 decoded bytes) is what
+     * crashed. Mirror v2rayNG: take ANDROID_ID's UTF-8 bytes, pad/truncate to 32,
+     * then URL-safe base64 without padding/wrapping.
+     */
+    private fun xudpBaseKey(context: Context): String {
+        val androidId = runCatching {
+            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+        }.getOrNull().orEmpty().ifEmpty { "v2rayNGCompose_xudp" }
+        val key32 = androidId.toByteArray(Charsets.UTF_8).copyOf(32) // zero-pad / truncate → 32 bytes
+        return Base64.encodeToString(key32, Base64.NO_PADDING or Base64.URL_SAFE or Base64.NO_WRAP)
     }
 
     override fun start(configJson: String): String {
