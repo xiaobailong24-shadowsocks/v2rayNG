@@ -22,11 +22,30 @@ HEV_SRC="${HEV_SRC:-$ROOT/../hev-socks5-tunnel}"
 
 # ---- 1) libv2ray.aar (prebuilt download) ------------------------------------
 mkdir -p composeApp/libs
-if [ -e "$XRAY_SRC/.git" ]; then
-  TAG="$(git -C "$XRAY_SRC" describe --tags --abbrev=0)"
-else
-  TAG="${LIBV2RAY_TAG:?AndroidLibXrayLite submodule missing; set LIBV2RAY_TAG}"
-fi
+# Resolve the AndroidLibXrayLite release tag robustly. `git describe` is preferred
+# (it pins to the submodule commit), but a shallow submodule checkout on a fresh CI
+# runner often has no ancestor tag, so fall back: fetch tags and retry, then an
+# explicit LIBV2RAY_TAG override, then the latest published release. (set -e is on,
+# so every fallible probe is guarded.)
+resolve_tag() {
+  local tag=""
+  if [ -e "$XRAY_SRC/.git" ]; then
+    tag="$(git -C "$XRAY_SRC" describe --tags --abbrev=0 2>/dev/null || true)"
+    if [ -z "$tag" ]; then
+      git -C "$XRAY_SRC" fetch --tags --force --depth=200 origin 2>/dev/null \
+        || git -C "$XRAY_SRC" fetch --tags --force origin 2>/dev/null || true
+      tag="$(git -C "$XRAY_SRC" describe --tags --abbrev=0 2>/dev/null || true)"
+    fi
+  fi
+  [ -n "$tag" ] || tag="${LIBV2RAY_TAG:-}"
+  if [ -z "$tag" ]; then
+    tag="$(curl -fsSL https://api.github.com/repos/2dust/AndroidLibXrayLite/releases/latest \
+      | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  fi
+  printf '%s' "$tag"
+}
+TAG="$(resolve_tag)"
+[ -n "$TAG" ] || { echo "could not resolve an AndroidLibXrayLite release tag"; exit 1; }
 echo ">> [1/2] downloading libv2ray.aar @ $TAG"
 curl -fL --retry 3 -o composeApp/libs/libv2ray.aar \
   "https://github.com/2dust/AndroidLibXrayLite/releases/download/${TAG}/libv2ray.aar"
