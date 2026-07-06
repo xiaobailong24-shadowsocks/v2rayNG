@@ -162,9 +162,17 @@ object XrayConfigBuilder {
                 }
             }
             when (network) {
-                "ws", "httpupgrade" -> putJsonObject("${network}Settings") {
+                "ws" -> putJsonObject("wsSettings") {
                     if (!item.path.isNullOrEmpty()) put("path", item.path!!)
                     if (!item.host.isNullOrEmpty()) putJsonObject("headers") { put("Host", item.host!!) }
+                }
+                "httpupgrade" -> putJsonObject("httpupgradeSettings") {
+                    if (!item.path.isNullOrEmpty()) put("path", item.path!!)
+                    // httpupgrade takes the camouflage host as a dedicated top-level
+                    // field; Xray hard-rejects a "Host" key inside `headers` here
+                    // (unlike ws, which back-compat-promotes it) and fails the whole
+                    // config load.
+                    if (!item.host.isNullOrEmpty()) put("host", item.host!!)
                 }
                 "grpc" -> putJsonObject("grpcSettings") {
                     if (!item.path.isNullOrEmpty()) put("serviceName", item.path!!)
@@ -177,8 +185,18 @@ object XrayConfigBuilder {
                 "tcp" -> if (item.headerType == "http") putJsonObject("tcpSettings") {
                     putJsonObject("header") {
                         put("type", "http")
-                        if (!item.host.isNullOrEmpty()) putJsonObject("request") {
-                            putJsonArray("headers") {}
+                        // Xray parses request.headers as an object (header name ->
+                        // string list), not an array; the earlier `headers: []` failed
+                        // the whole config parse and dropped the camouflage Host.
+                        putJsonObject("request") {
+                            put("version", "1.1")
+                            put("method", "GET")
+                            putJsonArray("path") { add(item.path?.takeIf { it.isNotEmpty() } ?: "/") }
+                            putJsonObject("headers") {
+                                if (!item.host.isNullOrEmpty()) putJsonArray("Host") {
+                                    item.host!!.split(",").forEach { add(it.trim()) }
+                                }
+                            }
                         }
                     }
                 }

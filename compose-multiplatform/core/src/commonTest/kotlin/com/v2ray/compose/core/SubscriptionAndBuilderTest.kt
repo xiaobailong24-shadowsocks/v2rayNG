@@ -99,4 +99,38 @@ class SubscriptionAndBuilderTest {
         assertTrue(jsonStr.contains("\"protocol\": \"trojan\""))
         assertTrue(jsonStr.contains("\"grpcSettings\""))
     }
+
+    @Test
+    fun xray_config_httpupgrade_uses_toplevel_host_not_headers() {
+        // Xray rejects a "Host" key inside httpupgradeSettings.headers; the camouflage
+        // host must be the dedicated top-level `host` field.
+        val p = ConfigParser.parse(
+            "vless://uuid-1@srv.com:443?encryption=none&security=tls&type=httpupgrade&host=cdn.com&path=%2Fup#N"
+        )
+        assertNotNull(p)
+        val stream = XrayConfigBuilder.buildConfig(p)["outbounds"]!!.jsonArray[0].jsonObject["streamSettings"]!!.jsonObject
+        assertEquals("httpupgrade", stream["network"]!!.jsonPrimitive.content)
+        val hu = stream["httpupgradeSettings"]!!.jsonObject
+        assertEquals("/up", hu["path"]!!.jsonPrimitive.content)
+        assertEquals("cdn.com", hu["host"]!!.jsonPrimitive.content)
+        assertTrue(hu["headers"] == null, "httpupgrade must not nest Host under headers")
+    }
+
+    @Test
+    fun xray_config_tcp_http_header_request_is_object_with_host() {
+        // request.headers must be an OBJECT (name -> string list); an empty array
+        // fails the whole Xray config parse, and the camouflage Host must be present.
+        val p = ConfigParser.parse(
+            "vless://uuid-1@srv.com:443?encryption=none&security=none&type=tcp&headerType=http&host=cdn.com&path=%2F#N"
+        )
+        assertNotNull(p)
+        val stream = XrayConfigBuilder.buildConfig(p)["outbounds"]!!.jsonArray[0].jsonObject["streamSettings"]!!.jsonObject
+        val header = stream["tcpSettings"]!!.jsonObject["header"]!!.jsonObject
+        assertEquals("http", header["type"]!!.jsonPrimitive.content)
+        val request = header["request"]!!.jsonObject
+        assertEquals("GET", request["method"]!!.jsonPrimitive.content)
+        val headers = request["headers"]!!.jsonObject // must be an object, not an array
+        val hostList = headers["Host"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(listOf("cdn.com"), hostList)
+    }
 }

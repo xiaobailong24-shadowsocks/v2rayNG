@@ -1,6 +1,5 @@
 package com.v2ray.compose.vpn
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -8,6 +7,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import androidx.core.app.NotificationCompat
 import com.v2ray.compose.core.config.XrayConfigBuilder
 import com.v2ray.compose.core.model.ConnectionStatus
 import com.v2ray.compose.core.vpn.ConnectionStats
@@ -51,6 +51,13 @@ class V2RayVpnService : VpnService() {
     private fun startTunnel(configPath: String?) {
         TunnelState.flow.value = ConnectionStats(status = ConnectionStatus.CONNECTING, activeProfileId = activeProfileId)
 
+        // Enter the foreground FIRST: the service is launched with
+        // startForegroundService(), so the platform kills the process with
+        // ForegroundServiceDidNotStartInTimeException unless startForeground() runs
+        // within ~5s — well before the core boot + establish() below, and it must
+        // also run on the fail() paths. fail()/stopTunnel() tear it back down.
+        startForegroundNotification()
+
         val core = XrayCore.load()
         if (core == null || !TProxyService.available) {
             fail("Native core not bundled (build with -PwithNative=true; see NATIVE.md).")
@@ -86,8 +93,6 @@ class V2RayVpnService : VpnService() {
 
             val fd = builder.establish() ?: error("VPN establish() returned null")
             tunFd = fd
-
-            startForegroundNotification()
 
             // 3) hev tun2socks bridges the TUN fd to the core's SOCKS inbound.
             val tunConfig = TProxyService.buildConfig(
@@ -160,9 +165,11 @@ class V2RayVpnService : VpnService() {
     }
 
     private fun startForegroundNotification() {
-        val manager = getSystemService(NotificationManager::class.java)
+        // NotificationChannel is API 26+; NotificationCompat.Builder backports the
+        // channel-id constructor to API 24/25 (the plain Notification.Builder(ctx,
+        // channelId) does NOT exist below 26 and would NoSuchMethodError there).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "VPN status", NotificationManager.IMPORTANCE_LOW),
             )
         }
@@ -171,12 +178,12 @@ class V2RayVpnService : VpnService() {
             Intent(this, V2RayVpnService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification: Notification = Notification.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("v2rayNG Compose")
-            .setContentText("Connected")
+            .setContentText("Proxy service running")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setOngoing(true)
-            .addAction(Notification.Action.Builder(null, "Disconnect", stopIntent).build())
+            .addAction(0, "Disconnect", stopIntent)
             .build()
         startForeground(NOTIFICATION_ID, notification)
     }

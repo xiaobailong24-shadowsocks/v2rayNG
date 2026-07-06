@@ -223,7 +223,9 @@ object ConfigParser {
         item.mode = q["mode"]
         // transport specific host/path
         when (item.network) {
-            "ws", "httpupgrade", "xhttp", "h2", "http" -> {
+            // tcp carries host/path only for the HTTP-header camouflage (headerType=http),
+            // but reading them unconditionally is harmless when there is no header.
+            "tcp", "ws", "httpupgrade", "xhttp", "h2", "http" -> {
                 item.host = q["host"]
                 item.path = q["path"]
             }
